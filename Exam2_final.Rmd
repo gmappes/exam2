@@ -1,0 +1,200 @@
+---
+title: "Exam 2 R Markdown Output"
+author: "Grace Mappes"
+date: "6/26/2020"
+output: word_document
+---
+
+```{r setup, include= TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(error = TRUE)
+```
+
+### call some packages just in case
+```{r}
+library(dplyr)
+library(tidyverse)
+library(WDI)
+```
+
+
+
+# 1. clear environment
+
+```{r}
+rm(list=ls(all=TRUE))
+```
+
+# 2. call rio and import inequality data set
+```{r}
+library(rio)
+inequality_data <- import("inequality.xlsx")
+```
+
+# 3. Type of data set
+This is a panel data set because there are multiple
+```{r}
+# view class of inequality data set
+class(inequality_data)
+```
+
+# 4. show Denmark and Sweden inequality_gini scores
+```{r}
+inequality_Denmark <- subset(inequality_data, 
+                                 inequality_gini == "Denmark")
+inequality_Sweden <- subset(inequality_data, 
+                        inequality_gini == "Sweden")
+```
+
+# 5. show Brazil inequality_gini scores
+
+```{r}
+inequality_Brazil <- subset(inequality_data, inequality_gini == "Brazil")
+```
+
+# 6. 
+Based on my prior answers, it is better to have a lower inequality_gini score than a higher score.
+
+# 7. View head of data frame
+```{r}
+head(inequality_data)
+```
+# 8. Write function accent.remove, apply to Belarus, run head again.
+Also changed encoding to UTF-8 in global options before running code.
+```{r}
+# write function accent.remove
+accent.remove <- function(s) {
+  old1 <- "ú"
+  new1 <- "u"
+  s1 <- chartr(old1, new1, s)
+}
+
+#apply accent.remove to data set
+inequality_data$country = accent.remove(inequality_data$country)
+
+#view head of data set to check for accent removal 
+head(inequality_data)
+```
+# 9. Sort data by lowest inequality_gini score
+```{r}
+# sort data by lowest inequality_gini score
+inequality_data <- order(inequality_data$inequality_gini)
+
+# view head of sorted data set
+head(inequality_data)
+```
+
+# 10. Mean inequality_gini score
+```{r}
+mean(inequality_data$inequality_gini, na.rm=TRUE)
+```
+As seen on the summary table above, the mean inequality_gini score is 36.81.
+
+# 11. Create high_inequality and low_inequality variables with ifelse.
+```{r}
+#write ifelse
+high_inequality <- ifelse(test = inequality_data$inequality_gini > 36.81, yes = 1, no = 0)
+low_inequality <- ifelse(test = inequality_data$inequality_gini <= 36.81, yes = 1, no = 0)
+```
+
+# 12. Cross tab of high_inequality and low_inequality
+```{r}
+library(doBy)
+summaryBy(high_inequality ~ low_inequality, data = inequality_data, FUN = c(mean,length), 
+          na.rm=TRUE, keep.names = TRUE)
+```
+
+# 13 For Loop
+First, I will make a vector that includes the names of the organizations.
+```{r}
+x <- c("World Bank", "African Development Bank", "Bill and Melinda Gates Foundation")
+```
+Next I will write the for loop to print these names.
+```{r}
+for (x in 1:x) {
+  print(paste(x))
+}
+```
+
+# 14 Find variable from World Development Indicators
+I chose the variable rural population because there is a stereotype that rural populations are more impoverished, and I would like to test that assertion. 
+
+# 15. Import rural population variable directly into R
+```{r}
+# call WDI package to get rural population data
+library(WDI)
+population_data = WDI(country = "all",
+indicator = c("SP.RUR.TOTL"), # indicator from web
+start = 2015, end = 2015, extra = FALSE, cache = NULL)
+```
+
+# 16. Renaming the variable for clarity
+```{r}
+# check current variable of name with summary
+summary(population_data)
+```
+```{r}
+# load data.table package
+library(data.table)
+setnames(population_data, "SP.RUR.TOTL", "rural_pop")
+```
+
+# 17. Merge the data sets
+```{r}
+# merge the data sets
+merged_df <- dplyr::left_join(inequality_data, population_data)
+
+# check for names that end in .x or .y
+names(merged_df)
+```
+
+# 18. Remove missing data
+```{r}
+# remove missing data from inequality_gini
+merged_df$inequality_gini <- na.omit(merged_df$inequality_gini)
+
+# remove missing data from new variable, rural_pop
+merged_df$rural_pop <- na.omit(merged_df$rural_pop)
+```
+
+# 19. Filter data, inequality_gini > 30
+```{r}
+data_greater_30 <-
+  merged_df %>%
+  dplyr::filter(inequality_gini > 30)
+```
+
+# 20. Count sequence "ai" in country names
+```{r}
+
+```
+
+# 21. Sum of inequality_gini in data_greater_30
+```{r}
+# first subset inequality_gini from data_greater_30
+data_greater_30_gini <- subset(data_greater_30, select = "inequality_gini")
+# use apply function to create a new variable with sum
+data_greater_30_gini_sum <- apply(data_greater_30_gini, 2, sum)
+# view sum
+View(data_greater_30_gini_sum)
+```
+
+# 22. Label merged_df variables
+```{r}
+# install package labelled
+library(labelled)
+
+# label the variables 
+var_label(merged_df) <- list(`iso2c` = "Country Code",
+`country` = "Country",
+`inequality_gini` = "Gini Inequality Score",
+`year` = "Year,"
+`rural_pop' = "Rural Population")
+```
+
+# 23. Save the data as a Stata format
+```{r}
+# save the dataset in Stata format with the labels
+library(rio)
+export(merged_df, file = "final_data.dta")
+```
